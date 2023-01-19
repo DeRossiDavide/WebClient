@@ -1,3 +1,5 @@
+#include <TimeLib.h>
+
 /*
  Web client
 
@@ -16,6 +18,7 @@
 
 #include <SPI.h>
 #include <Ethernet.h>
+#include <TimeLib.h>
 
 // Enter a MAC address for your controller below.
 // Newer Ethernet shields have a MAC address printed on a sticker on the shield
@@ -23,7 +26,7 @@ byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x08 };
 
 // if you don't want to use DNS (and reduce your sketch size)
 // use the numeric IP instead of the name for the server:
-IPAddress server(192, 168, 8, 6);  // numeric IP for Google (no DNS)
+IPAddress server(192, 168, 8, 132);  // numeric IP for Google (no DNS)
 //char server[] = "http://localhost:8000";    // name address for Google (using DNS)
 
 // Set the static IP address to use if the DHCP fails to assign
@@ -40,62 +43,73 @@ unsigned long byteCount = 0;
 bool printWebData = true;  // set to false for better speed measurement
 
 void setup() {
+  getDate();
+    
+}
+
+void loop() {
+  while (!client.connect(server, 8000)) {
+  }
+  if (client.connect(server, 8000)) {
+    Serial.println(second());
+    Serial.print("connected to ");
+    Serial.println(client.remoteIP());
+    String temp = "ftemp=12.21";
+    client.println("POST /sendtemperature.php HTTP/1.1");
+    client.println("Content-Type: application/x-www-form-urlencoded");
+    client.print("Content-Length: ");
+    client.println(temp.length());
+    client.println();
+    client.println(temp);
+  }
+  delay(1000);
+}
+
+void getDate() {
+
   Serial.begin(9600);
   Serial.println("Inizio");
 
-  Serial.println("Initialize Ethernet with DHCP: ");
+  Serial.println("Inizialize Ethernet with DHCP");
   Ethernet.begin(mac, ip);
-  Serial.print("DHCP assigned IP ");
+  Serial.println("DHCP assigned IP ");
   Serial.println(Ethernet.localIP());
 
   delay(1000);
   Serial.print("connecting to ");
   Serial.print(server);
   Serial.println("...");
-
-}
-
-void loop() {
-  while(true) {
-    connection();
-  }
-}
-
-void connection() {
-    while (!client.connect(server, 8000)) {
+  while (!client.connect(server, 8000)) {
   }
   if (client.connect(server, 8000)) {
     Serial.print("connected to ");
     Serial.println(client.remoteIP());
 
     client.println("GET /gettime.php HTTP/1.1");
-    client.println();
   } else {
     Serial.println("connection failed");
   }
-
-  while (!client.available()) {
-  }
+  Serial.println("SERVER");
   String msg = "";
   while (client.available()) {
     char c = client.read();
     msg = msg + c;
   }
-  Serial.print(msg);
+
+  Serial.println("msg");
 
   //Isoleted the date
   int i = 0;
-  while(msg[i] |= '\"') {
+  while (msg[i] == '\"') {
     i++;
   }
   i++;
-  char data[18]="";
-  int j = 0;
-  while (msg[i]!='\"') {
-    data[j] = msg[i];
-    j++;
+  String data = "";
+  Serial.println("Data");  
+  while (msg[i] == '\"') {
+    data = data + msg[i];
     i++;
   }
-  Serial.println(data);
-
+  Serial.println("data");
+  setTime(data.substring(11, 13).toInt(), data.substring(14, 16).toInt(), data.substring(17, 19).toInt(), data.substring(0, 4).toInt(), data.substring(5, 7).toInt(), data.substring(8, 10).toInt());
 }
